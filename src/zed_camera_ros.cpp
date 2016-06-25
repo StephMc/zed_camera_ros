@@ -6,7 +6,6 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/nonfree/nonfree.hpp>
 #include <camera_info_manager/camera_info_manager.h>
 
 using namespace cv;
@@ -58,6 +57,7 @@ int main(int argc, char** argv)
   cir->header.frame_id = "/camera_frame";
   while (nh.ok()) {
     cap >> frame;
+    //cv::resize(frame, frame, cv::Size(1280, 480));
     if (!frame.empty()) {
       left_frame = frame(Rect(0, 0, frame.cols / 2, frame.rows));
       right_frame = frame(Rect(frame.cols / 2, 0, frame.cols / 2, frame.rows));

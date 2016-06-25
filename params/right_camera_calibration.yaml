@@ -4,7 +4,7 @@ camera_name: right_camera
 camera_matrix:
   rows: 3
   cols: 3
-  data: [700.72, 0, 673.393, 0, 700.72, 349.306, 0, 0, 1]
+  data: [700.72, 0, 353.393, 0, 700.72, 229.306, 0, 0, 1]
 distortion_model: plumb_bob
 distortion_coefficients:
   rows: 1
@@ -17,4 +17,4 @@ rectification_matrix:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [700.72, 0, 673.393, 84.0864, 0, 700.72, 349.306, 0, 0, 0, 1, 0]
+  data: [700.72, 0, 353.393, 84.0864, 0, 700.72, 229.306, 0, 0, 0, 1, 0]
