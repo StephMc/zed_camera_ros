@@ -10,18 +10,50 @@
 
 using namespace cv;
 
+image_transport::CameraPublisher left_pub;
+image_transport::CameraPublisher right_pub;
+sensor_msgs::CameraInfoPtr cil;
+sensor_msgs::CameraInfoPtr cir;
+
+void imageCb(const sensor_msgs::ImageConstPtr& msg)
+{
+  cv_bridge::CvImagePtr cv_ptr;
+  try
+  {
+    cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  cv::Mat frame, left_frame, right_frame;
+  sensor_msgs::ImagePtr left_msg, right_msg;
+  //cv::resize(frame, frame, cv::Size(1280, 480));
+
+  left_frame = cv_ptr->image(Rect(0, 0, cv_ptr->image.cols / 2, cv_ptr->image.rows));
+  right_frame = cv_ptr->image(Rect(cv_ptr->image.cols / 2, 0, cv_ptr->image.cols / 2, cv_ptr->image.rows));
+  left_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", left_frame).toImageMsg();
+  right_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", right_frame).toImageMsg();
+  left_msg->header.frame_id = "/camera_frame";
+  right_msg->header.frame_id = "/camera_frame";
+  left_pub.publish(left_msg, cil);
+  right_pub.publish(right_msg, cir);
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "image_publisher");
   ros::NodeHandle nh;
   image_transport::ImageTransport it(nh);
-  image_transport::CameraPublisher left_pub =
-    it.advertiseCamera("camera/left/image_raw", 1);
-  image_transport::CameraPublisher right_pub =
-    it.advertiseCamera("camera/right/image_raw", 1);
+
+  left_pub = it.advertiseCamera("camera/left/image_raw", 1);
+  right_pub = it.advertiseCamera("camera/right/image_raw", 1);
+
   camera_info_manager::CameraInfoManager left_cam_info(nh, "left_camera");
-  camera_info_manager::CameraInfoManager
-      right_cam_info(nh, "right_camera");
+  camera_info_manager::CameraInfoManager right_cam_info(nh, "right_camera");
+
   left_cam_info.loadCameraInfo(
       "package://zed_camera_ros/params/left_camera_calibration.yaml");
   right_cam_info.loadCameraInfo(
@@ -35,41 +67,14 @@ int main(int argc, char** argv)
     ROS_ERROR("Cannot load right camera calibration");
     return 1;
   }
-  sensor_msgs::CameraInfoPtr cil(
-      new sensor_msgs::CameraInfo(left_cam_info.getCameraInfo()));
-  sensor_msgs::CameraInfoPtr cir(
-      new sensor_msgs::CameraInfo(right_cam_info.getCameraInfo()));
-
-  ros::NodeHandle nh_priv("~");
-  int camera_number;
-  nh_priv.param<int>("zed_camera_number", camera_number, 0);
-  cv::VideoCapture cap(camera_number);
-  // Check if video device can be opened with the given index
-  if(!cap.isOpened()) {
-    ROS_ERROR("Cannot open camera");
-    return 1;
-  }
-
-  cv::Mat frame, left_frame, right_frame;
-  sensor_msgs::ImagePtr left_msg, right_msg;
-  // Setup frames
+  cil.reset(new sensor_msgs::CameraInfo(left_cam_info.getCameraInfo()));
+  cir.reset(new sensor_msgs::CameraInfo(right_cam_info.getCameraInfo()));
   cil->header.frame_id = "/camera_frame";
   cir->header.frame_id = "/camera_frame";
-  while (nh.ok()) {
-    cap >> frame;
-    //cv::resize(frame, frame, cv::Size(1280, 480));
-    if (!frame.empty()) {
-      left_frame = frame(Rect(0, 0, frame.cols / 2, frame.rows));
-      right_frame = frame(Rect(frame.cols / 2, 0, frame.cols / 2, frame.rows));
-      left_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", left_frame)
-          .toImageMsg();
-      right_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", right_frame)
-          .toImageMsg();
-      left_msg->header.frame_id = "/camera_frame";
-      right_msg->header.frame_id = "/camera_frame";
-      left_pub.publish(left_msg, cil);
-      right_pub.publish(right_msg, cir);
-    }
-    ros::spinOnce();
-  }
+
+  image_transport::Subscriber image_sub =
+    it.subscribe("/zed/usb_cam/image_raw", 1, imageCb);
+
+  ros::spin();
+  return 0;
 }
